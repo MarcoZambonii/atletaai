@@ -115,10 +115,29 @@ footer{text-align:center;font-size:9px;letter-spacing:.14em;color:#c0c0d8;paddin
   </div>
 
   <div style="background:#fff;border:1px solid rgba(124,58,237,.1);border-radius:12px;padding:1.1rem 1.3rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(124,58,237,.05)">
-    <div style="font-size:9px;letter-spacing:.14em;color:#b0b0cc;margin-bottom:.9rem;text-transform:uppercase">Copertura Distanze 70.3</div>
-    <div class="bw"><div class="bh"><span>NUOTO</span><span>1.9/1.9km · 100%</span></div><div class="bbg"><div class="bfg" style="width:100%"></div></div></div>
-    <div class="bw"><div class="bh"><span>BICI</span><span id="bici-label">—</span></div><div class="bbg"><div class="bf" id="bici-bar" style="width:0%"></div></div></div>
-    <div class="bw" style="margin-bottom:0"><div class="bh"><span>CORSA</span><span id="corsa-label">—</span></div><div class="bbg"><div class="bf" id="corsa-bar" style="width:0%"></div></div></div>
+    <div style="font-size:9px;letter-spacing:.14em;color:#b0b0cc;margin-bottom:.9rem;text-transform:uppercase">⏱ Previsione Cervia 70.3</div>
+    <div id="previsione-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="text-align:center;padding:.8rem;background:#f5f4fc;border-radius:10px">
+        <div style="font-size:9px;letter-spacing:.1em;color:#9090b0;text-transform:uppercase;margin-bottom:4px">🏊 Nuoto 1.9km</div>
+        <div id="prev-nuoto" style="font-size:18px;font-weight:800;color:#7c3aed">—</div>
+        <div id="prev-nuoto-sub" style="font-size:9px;color:#b0b0cc;margin-top:2px"></div>
+      </div>
+      <div style="text-align:center;padding:.8rem;background:#f5f4fc;border-radius:10px">
+        <div style="font-size:9px;letter-spacing:.1em;color:#9090b0;text-transform:uppercase;margin-bottom:4px">🚴 Bici 90km</div>
+        <div id="prev-bici" style="font-size:18px;font-weight:800;color:#7c3aed">—</div>
+        <div id="prev-bici-sub" style="font-size:9px;color:#b0b0cc;margin-top:2px"></div>
+      </div>
+      <div style="text-align:center;padding:.8rem;background:#f5f4fc;border-radius:10px">
+        <div style="font-size:9px;letter-spacing:.1em;color:#9090b0;text-transform:uppercase;margin-bottom:4px">🏃 Corsa 21.1km</div>
+        <div id="prev-corsa" style="font-size:18px;font-weight:800;color:#7c3aed">—</div>
+        <div id="prev-corsa-sub" style="font-size:9px;color:#b0b0cc;margin-top:2px"></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding:8px 12px;background:#f5f4fc;border-radius:10px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:9px;letter-spacing:.1em;color:#9090b0;text-transform:uppercase">🏁 Totale stimato</div>
+      <div id="prev-totale" style="font-size:16px;font-weight:800;color:#12122a">—</div>
+    </div>
+    <div style="font-size:9px;color:#c0c0d8;margin-top:8px;text-align:center">Basato sulle tue ultime sessioni Strava · include fatica da gara</div>
   </div>
   <div class="alrt">⚠ TSB -6 — Leggero overreach. Se scende sotto -20 inserisci una settimana di scarico.</div>
 
@@ -320,6 +339,57 @@ var SPORT_TAG = {Corsa:'RUN',Bici:'BIKE',Nuoto:'SWIM',Trail:'TRAIL',Camminata:'W
 
 function secsToHM(s){var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
 
+function calcolaPrevisione(acts){
+  // Prendi ultime 10 sessioni per sport
+  var nuoti  = acts.filter(function(a){return a.sport==='Swim'||a.sport==='OpenWaterSwim';}).slice(0,10);
+  var bici   = acts.filter(function(a){return a.sport==='Ride'||a.sport==='VirtualRide'||a.sport==='GravelRide';}).slice(0,10);
+  var corse  = acts.filter(function(a){return a.sport==='Run'||a.sport==='VirtualRun';}).slice(0,10);
+
+  function avgPace(list){ // secondi per km
+    if(!list.length) return null;
+    var valids = list.filter(function(a){return a.distanza_km>0;});
+    if(!valids.length) return null;
+    var tot = valids.reduce(function(s,a){return s+(a.tempo_s/a.distanza_km);},0);
+    return tot/valids.length;
+  }
+  function avgSpeed(list){ // km/h
+    if(!list.length) return null;
+    var valids = list.filter(function(a){return a.distanza_km>0;});
+    if(!valids.length) return null;
+    var tot = valids.reduce(function(s,a){return s+a.velocita;},0);
+    return tot/valids.length;
+  }
+
+  var paceNuoto = avgPace(nuoti);   // sec/km
+  var velBici   = avgSpeed(bici);   // km/h
+  var paceCorsa = avgPace(corse);   // sec/km
+
+  // Fattore fatica gara: nuoto +5%, bici -8% velocità, corsa +15% pace
+  var tNuoto  = paceNuoto  ? Math.round(paceNuoto  * 1.05 * 1.9)  : null;
+  var tBici   = velBici    ? Math.round((90 / (velBici * 0.92)) * 3600) : null;
+  var tCorsa  = paceCorsa  ? Math.round(paceCorsa  * 1.15 * 21.1) : null;
+  var tT1T2   = 5 * 60; // transizioni ~5 min
+
+  // Fallback se mancano dati
+  var labelNuoto = tNuoto  ? secsToHM(tNuoto)  : '~38m';
+  var labelBici  = tBici   ? secsToHM(tBici)   : '~4h 30m';
+  var labelCorsa = tCorsa  ? secsToHM(tCorsa)  : '~2h 10m';
+
+  var subNuoto = paceNuoto ? Math.round(paceNuoto*1.05/60)+"'"+String(Math.round((paceNuoto*1.05%60))).padStart(2,'0')+'" /100m' : 'stima base';
+  var subBici  = velBici   ? Math.round(velBici*0.92*10)/10+' km/h' : 'stima base';
+  var subCorsa = paceCorsa ? Math.round(paceCorsa*1.15/60)+"'"+String(Math.round((paceCorsa*1.15%60))).padStart(2,'0')+'" /km' : 'stima base';
+
+  var tot = (tNuoto||2280) + (tBici||16200) + (tCorsa||7800) + tT1T2;
+
+  document.getElementById('prev-nuoto').textContent     = labelNuoto;
+  document.getElementById('prev-nuoto-sub').textContent = subNuoto;
+  document.getElementById('prev-bici').textContent      = labelBici;
+  document.getElementById('prev-bici-sub').textContent  = subBici;
+  document.getElementById('prev-corsa').textContent     = labelCorsa;
+  document.getElementById('prev-corsa-sub').textContent = subCorsa;
+  document.getElementById('prev-totale').textContent    = secsToHM(tot);
+}
+
 function buildDashboard(acts){
   var weekAgo = new Date(Date.now()-7*86400000);
   var week = acts.filter(function(a){return new Date(a.data)>weekAgo;});
@@ -419,6 +489,7 @@ fetch('https://atletaai-backend.onrender.com/attivita?n=60')
   .then(function(data){
     if(!Array.isArray(data)) throw new Error('not array');
     allActs = data;
+    calcolaPrevisione(data);
     var dot=document.getElementById('status-dot'), txt=document.getElementById('status-text');
     dot.style.background='#10b981'; txt.style.color='#059669';
     txt.textContent='🟠 Strava connesso — '+data.length+' attività';
@@ -437,6 +508,7 @@ fetch('https://atletaai-backend.onrender.com/attivita?n=60')
     var dot=document.getElementById('status-dot'), txt=document.getElementById('status-text');
     dot.style.background='#dc2626'; txt.style.color='#9090b0';
     txt.textContent='Strava non disponibile — dati demo';
+    calcolaPrevisione([]);
     renderActivities([
       {sport:'Bici',tag:'BIKE · 3 sess',km:142,tempo:'4h 50m',hr:145},
       {sport:'Corsa',tag:'RUN · 3 sess',km:22,tempo:'2h 05m',hr:152},
