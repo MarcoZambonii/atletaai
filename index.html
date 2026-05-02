@@ -132,6 +132,15 @@ footer{text-align:center;font-size:9px;letter-spacing:.14em;color:#c0c0d8;paddin
   <footer>AtletaAI · Cervia 70.3 · 20 Set 2026</footer>
 </div>
 
+<!-- DETAIL OVERLAY -->
+<div id="detail-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(18,18,42,.5);backdrop-filter:blur(8px);z-index:100;align-items:flex-end;justify-content:center">
+  <div id="detail-content" style="background:#fff;border-radius:20px 20px 0 0;padding:1.5rem;width:100%;max-width:700px;max-height:80vh;overflow-y:auto;animation:slideUp .3s ease">
+  </div>
+</div>
+<style>
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+</style>
+
 <script>
 // ── Countdown ─────────────────────────────────────────────────────────────────
 (function(){
@@ -328,11 +337,74 @@ function buildDashboard(acts){
   });
 }
 
+var allActs = [];
+
+function openDetail(id){
+  var act = allActs.find(function(a){return a.id===id;});
+  if(!act) return;
+  var overlay = document.getElementById('detail-overlay');
+  var date = new Date(act.data).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('detail-content').innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem">' +
+      '<div>' +
+        '<div style="font-size:9px;letter-spacing:.15em;color:#9090b0;text-transform:uppercase;margin-bottom:.3rem">'+(SPORT_TAG[act.sport]||act.sport)+'</div>' +
+        '<div style="font-size:22px;font-weight:800;color:#12122a;margin-bottom:.2rem">'+act.nome+'</div>' +
+        '<div style="font-size:11px;color:#9090b0">'+date+'</div>' +
+      '</div>' +
+      '<button onclick="closeDetail()" style="background:none;border:none;font-size:22px;color:#c0c0d8;cursor:pointer;padding:4px">✕</button>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1.2rem">' +
+      statBox('Distanza', act.distanza_km+' km') +
+      statBox('Tempo', secsToHM(act.tempo_s)) +
+      statBox('Velocità', act.velocita+' km/h') +
+      statBox('HR Medio', act.hr_medio ? act.hr_medio+' bpm' : '—') +
+      statBox('HR Max', act.hr_max ? act.hr_max+' bpm' : '—') +
+      statBox('Dislivello', act.dislivello ? act.dislivello+'m' : '—') +
+      (act.potenza ? statBox('Potenza', act.potenza+' W') : '') +
+      (act.tss ? statBox('TSS', act.tss) : '') +
+    '</div>' +
+    '<button onclick="askCoachAbout('+JSON.stringify(act.nome)+')" style="width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#9d5cf6);border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.04em">💬 Chiedi al coach di questa sessione</button>';
+  overlay.style.display = 'flex';
+}
+
+function statBox(label, val){
+  return '<div style="background:#f5f4fc;border-radius:10px;padding:.8rem 1rem">' +
+    '<div style="font-size:9px;letter-spacing:.1em;color:#9090b0;text-transform:uppercase;margin-bottom:3px">'+label+'</div>' +
+    '<div style="font-size:18px;font-weight:700;color:#12122a">'+val+'</div>' +
+  '</div>';
+}
+
+function closeDetail(){
+  document.getElementById('detail-overlay').style.display = 'none';
+}
+
+function askCoachAbout(nome){
+  closeDetail();
+  if(!chatOpen) toggleChat();
+  var inp = document.getElementById('chat-inp');
+  inp.value = 'Analizza la mia sessione: '+nome;
+  setTimeout(sendMsg, 200);
+}
+
 function renderActivities(settimana){
   var grid = document.getElementById('agrid');
   if(!settimana.length){grid.innerHTML='<div style="color:#b0b0cc;font-size:12px;padding:1rem">Nessuna attività questa settimana</div>';return;}
   grid.innerHTML = settimana.map(function(s,i){
-    return '<div class="ac"><div class="acn">0'+(i+1)+'</div><div class="acs">'+s.sport+'</div><div class="acd">'+s.tag+'</div><div class="ack">'+s.km+'</div><div class="acu">KM</div><div class="atag">'+(SPORT_TAG[s.sport]||s.sport)+'</div><div class="acr"><div><div class="aml">Tempo</div><div class="amv">'+s.tempo+'</div></div><div><div class="aml">HR</div><div class="amv">'+(s.hr||'—')+'</div></div></div></div>';
+    var idAttr = s.id ? 'onclick="openDetail('+s.id+')"' : '';
+    var cursor = s.id ? 'cursor:pointer' : '';
+    return '<div class="ac" '+idAttr+' style="'+cursor+'">' +
+      '<div class="acn">0'+(i+1)+'</div>' +
+      '<div class="acs">'+s.sport+'</div>' +
+      '<div class="acd">'+s.tag+'</div>' +
+      '<div class="ack">'+s.km+'</div>' +
+      '<div class="acu">KM</div>' +
+      '<div class="atag">'+(SPORT_TAG[s.sport]||s.sport)+'</div>' +
+      '<div class="acr">' +
+        '<div><div class="aml">Tempo</div><div class="amv">'+s.tempo+'</div></div>' +
+        '<div><div class="aml">HR</div><div class="amv">'+(s.hr||'—')+'</div></div>' +
+        '<div><div class="aml">↗</div><div class="amv" style="font-size:10px">dettaglio</div></div>' +
+      '</div>' +
+    '</div>';
   }).join('');
   var vol = settimana.reduce(function(a,s){return a+s.km;},0).toFixed(0);
   document.getElementById('vol-val').textContent = vol+'km';
@@ -346,10 +418,18 @@ fetch('https://atletaai-backend.onrender.com/attivita?n=60')
   .then(function(r){return r.json();})
   .then(function(data){
     if(!Array.isArray(data)) throw new Error('not array');
+    allActs = data;
     var dot=document.getElementById('status-dot'), txt=document.getElementById('status-text');
     dot.style.background='#10b981'; txt.style.color='#059669';
     txt.textContent='🟠 Strava connesso — '+data.length+' attività';
-    var settimana = buildDashboard(data);
+    var weekAgo = new Date(Date.now()-7*86400000);
+    var week = data.filter(function(a){return new Date(a.data)>weekAgo;});
+    var settimana = buildDashboard(week.length ? week : data.slice(0,5));
+    // Aggiungi id alle card per aprire il dettaglio
+    settimana.forEach(function(s){
+      var match = data.find(function(a){ return (SPORT_MAP[a.sport]||a.sport)===s.sport; });
+      if(match) s.id = match.id;
+    });
     renderActivities(settimana);
     stravaCtx = 'Dati reali Strava: '+settimana.map(function(s){return s.sport+' '+s.km+'km'+(s.hr?' HR'+s.hr:'');}).join(', ')+'.';
   })
