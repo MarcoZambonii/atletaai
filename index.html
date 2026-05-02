@@ -444,7 +444,7 @@ fetch('https://atletaai-backend.onrender.com/attivita?n=60')
     calcolaPrevisione(data);
     var dot=document.getElementById('status-dot'),txt=document.getElementById('status-text');
     dot.style.background='#10b981';txt.style.color='#059669';
-    txt.textContent='🟠 Strava connesso — '+data.length+' attività';
+    txt.textContent='🟠 Connesso;
     var weekAgo=new Date(Date.now()-7*86400000);
     var week=data.filter(function(a){return new Date(a.data)>weekAgo;});
     var src=week.length?week:data.slice(0,5);
