@@ -454,13 +454,9 @@ fetch('https://atletaai-backend.onrender.com/attivita?n=60')
   .catch(function(){
     var dot=document.getElementById('status-dot'),txt=document.getElementById('status-text');
     dot.style.background='#dc2626';txt.style.color='#9090b0';
-    txt.textContent='Strava non disponibile — dati demo';
+    txt.textContent='Strava non disponibile — ricarica la pagina';
     calcolaPrevisione([]);
-    renderActivities(buildDashboard([
-      {sport:'Ride',distanza_km:50.67,tempo_s:9334,velocita:19.5,hr_medio:158,hr_max:177,dislivello:1320,nome:'Pedalata',data:new Date().toISOString()},
-      {sport:'Run',distanza_km:12,tempo_s:3600,velocita:12,hr_medio:null,hr_max:null,dislivello:0,nome:'Corsa',data:new Date().toISOString()},
-      {sport:'TrailRun',distanza_km:5.2,tempo_s:2233,velocita:8.4,hr_medio:145,hr_max:173,dislivello:189,nome:'Trail serale',data:new Date().toISOString()},
-    ]));
+    document.getElementById('agrid').innerHTML='<div class="ac" style="grid-column:span 2;display:flex;align-items:center;justify-content:center;color:#b0b0cc;font-size:12px;padding:2rem">Connessione a Strava non riuscita — ricarica la pagina</div>';
   });
 </script>
 </body>
